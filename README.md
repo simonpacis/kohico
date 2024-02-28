@@ -27,11 +27,9 @@ Before running this script, ensure you have the following prerequisites installe
 
 2. **Move Metadata File**: Move the `metadata.pdf.lua` file from the `.sdr` directory to the same location as the corresponding PDF (if converting for obsidian-annotator, the PDF must be in your Obsidian vault).
 
-3. **Run the Script**: Execute the script, passing the absolute path to the PDF in your Obsidian vault as the first argument, and your desired output as the second (`obsidian-annotator` or `obs` for obsidian-annotator, `bake` for baked in). It will generate a file named `<PDFNAME>_anno.md` or `<PDFNAME>_anno.pdf` next to the original PDF.
+3. **Run the Script**: Execute the script (`python3 kohico.py [...]`), passing the path to the PDF, and your desired output as the second (`obsidian-annotator` or `obs` for obsidian-annotator, `bake` for baked in). It will generate a file named `<PDFNAME>_anno.md` or `<PDFNAME>_anno.pdf` next to the original PDF.
 
-4. **Annotate in Obsidian**: Open the generated markdown file in Obsidian (with obsidian-annotator installed). Click the three dots in the top-right corner and select "Annotate".
-
-5. **View Your Highlights**: Your KOReader highlights should now appear as annotations in Obsidian.
+5. **View Your Highlights**: Your KOReader highlights can now be viewed.
 
 ## How it Works
 The script acceses the highlights metadata from KOReader, and converts it to JSON. It then iterates through every highlight, goes into the PDF and finds the highlight there, so that it can extract the surrounding textual content.
