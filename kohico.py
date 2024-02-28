@@ -13,17 +13,8 @@ import pdfminer.pdfparser
 import pdfminer.pdfdocument
 from lupa import LuaRuntime
 from datetime import datetime, timezone
-
-# This script converts KOReader highlights into Hypothes.is annotations for use with the Obsidian plugin obsidian-annotator by elias-sundqvist.
-# First, find the PDF in your KOReader-directory. Next to it there will be a directory called "PDFNAME.sdr". In it will be a file called "metadata.pdf.lua". Move this file next to the *same* PDF, but located somewhere in your Obsidian vault. This script needs access to the PDF to succesfully convert the highlights into annotations.
-# The script will now generate a file called "PDFNAME_anno.md" next to the PDF. Open this in Obsidian with obsidian-annotator installed, click the three dots in top-right corner and click "Annotate". 
-# Watch as the highlights you made on your Kindle are now in Obsidian.
-#
-# Hope it works for you.
-#
-#
-# Important installation note: You need lua installed with the dkjson-package. And then install pip packages for all the imports you see up top.
-
+import fitz
+import argparse
 
 # This script simply opens the metadata.pdf.lua file, converts it to json and spits it out. Easiest way to convert the lua data structure to json.
 encoded_lua_script = 'bG9jYWwgZGtqc29uID0gcmVxdWlyZSAiZGtqc29uIgoKbG9jYWwgc3RhdHVzLCBkYXRhID0gcGNhbGwoZG9maWxlLCBhcmd1bWVudCkKaWYgc3RhdHVzIHRoZW4KCWxvY2FsIGpzb25fc3RyaW5nID0gZGtqc29uLmVuY29kZShkYXRhLCB7IGluZGVudCA9IHRydWUgfSkKCXJldHVybiBqc29uX3N0cmluZwplbmQK'
@@ -42,6 +33,7 @@ class Annotation:
         self.unique_id = ''.join(random.choice(characters) for _ in range(10))
         self.notes = notes
         self.text = text
+        self.page_number = page_number
         self.context = context
         self.data = {
                 "text": text,
@@ -179,12 +171,17 @@ def find_context(pdf_path, page_number, search_string):
                 "end_pos": global_end_pos
                 }
 
-def format_annotations_as_markdown(json_data):
-    global annotations
-    used_texts = []
-    markdown_output = ["# Annotations and Highlights\n"]
+def lua_to_json():
+    print('Converting metadata to JSON.')
+    lua_script = base64.b64decode(encoded_lua_script).decode('utf-8')
+    lua = LuaRuntime(unpack_returned_tuples=True)
+    lua.globals().argument = os.path.dirname(file_path) + '/metadata.pdf.lua' 
+    return json.loads(lua.execute(lua_script))
 
-    # Process "highlight" annotations
+def process_annotations(json_data):
+    global annotations
+    print('Processing annotations.')
+    # Process annotations
     if "bookmarks" in json_data:
         for bookmark in json_data["bookmarks"]:
             page_no = bookmark.get("page", 1)
@@ -193,16 +190,48 @@ def format_annotations_as_markdown(json_data):
             title = json_data['doc_props']['title']
             context = find_context(file_path, page_no, notes)
             annotations.append(Annotation(fingerprint, title, vault_path, text, notes, file_path, page_no, context))
-#    if "highlight" in json_data:
-#        for page, highlights in json_data["highlight"].items():
-#            markdown_output.append(f"## Page {page}\n")
-#            for highlight in highlights:
-#                text = highlight.get("text", "No text available")
-#                text_class = next((p for p in used_texts if p.highlight == text), None)
-#                if text_class is not None:
-#                    markdown_output.append(text_class.print())
 
+def convert_annotations_obsidian_annotator():
+    global annotations
+    print('Converting annotations (obsidian-annotator).')
+    markdown_output = ["# Annotations and Highlights\n"]
+    final_output = f"annotation-target::[[{vault_path.replace('vault:/', '', 1)}]]\n"
+    for annotation in annotations:
+        final_output = final_output + annotation.markdown()
+    final_output = final_output + '\n'
+    last_slash_index = file_path.rfind('/')
+    output_file_name = file_path.replace('.pdf', '', 1) + '_anno.md'
+    with open(output_file_name, 'w') as file:
+        file.write(final_output)
+    new_pdf_path = args.file_path.replace('.pdf', '_anno.md')
+    print(f"Annotation file saved as {new_pdf_path}.")
     return True
+
+def convert_annotations_bake(pdf_path):
+    print('Converting annotations (bake).')
+    doc = fitz.open(pdf_path)
+    for annotation in annotations:
+        page = doc[annotation.page_number - 1]
+        text_instances = page.search_for(annotation.notes)
+
+        if text_instances:
+            # Add highlight for each instance
+            for inst in text_instances:
+                highlight = page.add_highlight_annot(inst)
+
+            # Calculate note position to be in the right margin but aligned with the first highlight
+            first_instance = text_instances[0]
+            y_position = first_instance[1]  # Y-coordinate of the first highlight's top edge
+            x_position = page.rect.width - 60  # Assuming the note should be 60 units from the right edge
+            note_position = (x_position, y_position)
+
+            # Add one clickable note in the right margin for the highlight
+            note = page.add_text_annot(note_position, annotation.text, icon="Comment")
+            note.set_info(content=annotation.text, title="kohico")
+            note.update()
+    new_pdf_path = args.file_path.replace('.pdf', '_anno.pdf')
+    doc.save(new_pdf_path)
+    print(f"Annotated PDF saved as {new_pdf_path}.")
 
 
 def hexify(byte_string):
@@ -255,6 +284,7 @@ def file_id_from(path):
 
 
 def fingerprint(path):
+    print('Fingerprinting.')
     return file_id_from(path) or hash_of_first_kilobyte(path)
 
 def find_relative_path_to_pdf(absolute_pdf_path):
@@ -272,33 +302,32 @@ def find_relative_path_to_pdf(absolute_pdf_path):
 
     return None
 
-# Check if at least one argument is provided
-if len(sys.argv) > 1:
-    file_path = sys.argv[1]
-else:
-    print("No filename provided. First argument should be absolute path to the pdf-file in your Obsidian vault.")
-    sys.exit(0)
+parser = argparse.ArgumentParser(description="Convert KOReader highlights, either by baking them into the PDF or converting for use with the Annotator plugin for Obsidian.")
+parser.add_argument("file_path", help="Path to the PDF file")
+parser.add_argument("conversion_type", nargs='?', choices=['obsidian-annotator', 'obs', 'bake'], default='obsidian-annotator', help="Type of conversion ('obsidian-annotator'/'obs' for Obsidian Annotator, 'bake' for baking into the PDF). Default is 'obsidian-annotator'.")
+args = parser.parse_args()
+print('Initiating.')
 
+file_path = args.file_path
 raw_vault_path = find_relative_path_to_pdf(file_path)
 vault_path = 'vault:/' + find_relative_path_to_pdf(file_path)
-
-fingerprint = fingerprint(file_path)
-
 page_offsets = []
 annotations = []
 
-lua_script = base64.b64decode(encoded_lua_script).decode('utf-8')
-lua = LuaRuntime(unpack_returned_tuples=True)
-lua.globals().argument = os.path.dirname(file_path) + '/metadata.pdf.lua' 
-json_data = json.loads(lua.execute(lua_script))
+if args.conversion_type == 'obs' or args.conversion_type == 'obsidian-annotator':
+    fingerprint = fingerprint(file_path)
+    conversion_type = 'obsidian-annotator'
+else:
+    fingerprint = 'na'
+    conversion_type = args.conversion_type
 
-markdown_output = format_annotations_as_markdown(json_data)
-final_output = f"annotation-target::[[{vault_path.replace('vault:/', '', 1)}]]\n"
-for annotation in annotations:
-    final_output = final_output + annotation.markdown()
-final_output = final_output + '\n'
-last_slash_index = file_path.rfind('/')
-output_file_name = file_path.replace('.pdf', '', 1) + '_anno.md'
-with open(output_file_name, 'w') as file:
-    file.write(final_output)
+json_data = lua_to_json()
+
+process_annotations(json_data)
+
+if conversion_type == 'obsidian-annotator':
+    convert_annotations_obsidian_annotator()
+elif conversion_type == 'bake':
+    convert_annotations_bake(file_path)
+
 print('All done.')
