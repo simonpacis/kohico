@@ -2,6 +2,7 @@
 Convert PDF KOReader Highlights, so that the highlights and annotations can be used in different software.
 
 Supported formats:
+- Markdown
 - [obsidian-annotator](https://github.com/elias-sundqvist/obsidian-annotator)
 - baked in (embedded directly in PDF file)
 
@@ -27,7 +28,7 @@ Before running this script, ensure you have the following prerequisites installe
 
 2. **Move Metadata File**: Move the `metadata.pdf.lua` file from the `.sdr` directory to the same location as the corresponding PDF (if converting for obsidian-annotator, the PDF must be in your Obsidian vault).
 
-3. **Run the Script**: Execute the script (`python3 kohico.py [...]`), passing the path to the PDF, and your desired output as the second (`obsidian-annotator` or `obs` for obsidian-annotator, `bake` for baked in). It will generate a file named `<PDFNAME>_anno.md` or `<PDFNAME>_anno.pdf` next to the original PDF.
+3. **Run the Script**: Execute the script (`python3 kohico.py [...]`), passing the path to the PDF, and your desired output as the second (`obsidian-annotator` or `obs` for obsidian-annotator, `bake` for baked in, `markdown` or `md` for export to Markdown.). It will generate a file named `<PDFNAME>_anno.md` or `<PDFNAME>_anno.pdf` next to the original PDF.
 
 5. **View Your Highlights**: Your KOReader highlights can now be viewed.
 

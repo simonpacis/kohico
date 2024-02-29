@@ -74,7 +74,7 @@ class Annotation:
     def nonewlines(self, string):
         return string.replace('\r\n', '').replace('\n', '')
 
-    def markdown(self):
+    def hypothesis(self):
         return_string = f"""
 >%%
 >```annotation-json
@@ -89,6 +89,19 @@ class Annotation:
 >
 ^{self.unique_id}"""
         return return_string + '\n'
+
+    def markdown(self):
+        return_string = f"""
+## Annotation on Page {self.page_number}
+
+**Highlighted Text:**  
+==={self.notes}===
+
+**Annotation:**  
+{self.text}
+
+"""
+        return return_string
 
 def remove_whitespace(text):
     return re.sub(r'\s+', '', text)
@@ -194,10 +207,9 @@ def process_annotations(json_data):
 def convert_annotations_obsidian_annotator():
     global annotations
     print('Converting annotations (obsidian-annotator).')
-    markdown_output = ["# Annotations and Highlights\n"]
     final_output = f"annotation-target::[[{vault_path.replace('vault:/', '', 1)}]]\n"
     for annotation in annotations:
-        final_output = final_output + annotation.markdown()
+        final_output = final_output + annotation.hypothesis()
     final_output = final_output + '\n'
     last_slash_index = file_path.rfind('/')
     output_file_name = file_path.replace('.pdf', '', 1) + '_anno.md'
@@ -205,6 +217,21 @@ def convert_annotations_obsidian_annotator():
         file.write(final_output)
     new_pdf_path = args.file_path.replace('.pdf', '_anno.md')
     print(f"Annotation file saved as {new_pdf_path}.")
+    return True
+
+def convert_annotations_markdown():
+    global annotations
+    print('Converting annotations (markdown).')
+    markdown_output = "# Annotations and Highlights\n"
+    sorted_annotations = sorted(annotations, key=lambda x: x.page_number)
+    for annotation in sorted_annotations:
+        markdown_output = markdown_output + annotation.markdown()
+    markdown_output = markdown_output + '\n'
+    last_slash_index = file_path.rfind('/')
+    output_file_name = file_path.replace('.pdf', '', 1) + '_anno.md'
+    with open(output_file_name, 'w') as file:
+        file.write(markdown_output)
+    print(f"Annotation file saved as {output_file_name}.")
     return True
 
 def convert_annotations_bake(pdf_path):
@@ -302,9 +329,9 @@ def find_relative_path_to_pdf(absolute_pdf_path):
 
     return None
 
-parser = argparse.ArgumentParser(description="Convert KOReader highlights, either by baking them into the PDF or converting for use with the Annotator plugin for Obsidian.")
+parser = argparse.ArgumentParser(description="Convert KOReader highlights, either by baking them into the PDF, converting for use with the Annotator plugin for Obsidian, or exporting to Markdown.")
 parser.add_argument("file_path", help="Path to the PDF file")
-parser.add_argument("conversion_type", nargs='?', choices=['obsidian-annotator', 'obs', 'bake'], default='obsidian-annotator', help="Type of conversion ('obsidian-annotator'/'obs' for Obsidian Annotator, 'bake' for baking into the PDF). Default is 'obsidian-annotator'.")
+parser.add_argument("conversion_type", nargs='?', choices=['obsidian-annotator', 'obs', 'bake', 'markdown', 'md'], default='obsidian-annotator', help="Type of conversion ('obsidian-annotator'/'obs' for Obsidian Annotator, 'bake' for baking into the PDF, 'markdown'/'md' for markdown output.). Default is 'obsidian-annotator'.")
 args = parser.parse_args()
 print('Initiating.')
 
@@ -329,5 +356,7 @@ if conversion_type == 'obsidian-annotator':
     convert_annotations_obsidian_annotator()
 elif conversion_type == 'bake':
     convert_annotations_bake(file_path)
+elif conversion_type == 'markdown' or conversion_type == 'md':
+    convert_annotations_markdown()
 
 print('All done.')
