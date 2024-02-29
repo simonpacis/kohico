@@ -91,9 +91,7 @@ class Annotation:
         return return_string + '\n'
 
     def markdown(self):
-        return_string = f"""
-## Annotation on Page {self.page_number}
-
+        return_string = f"""## Annotation on Page {self.page_number}
 **Highlighted Text:**  
 ==={self.notes}===
 
@@ -211,18 +209,16 @@ def convert_annotations_obsidian_annotator():
     for annotation in annotations:
         final_output = final_output + annotation.hypothesis()
     final_output = final_output + '\n'
-    last_slash_index = file_path.rfind('/')
-    output_file_name = file_path.replace('.pdf', '', 1) + '_anno.md'
+    output_file_name = file_path.replace('.pdf', '', 1) + '_obs-anno.md'
     with open(output_file_name, 'w') as file:
         file.write(final_output)
-    new_pdf_path = args.file_path.replace('.pdf', '_anno.md')
-    print(f"Annotation file saved as {new_pdf_path}.")
+    print(f"Annotation file saved as {output_file_name}.")
     return True
 
 def convert_annotations_markdown():
     global annotations
     print('Converting annotations (markdown).')
-    markdown_output = "# Annotations and Highlights\n"
+    markdown_output = "# Annotations and Highlights\nDocument: " + os.path.basename(file_path) + '\n'
     sorted_annotations = sorted(annotations, key=lambda x: x.page_number)
     for annotation in sorted_annotations:
         markdown_output = markdown_output + annotation.markdown()
