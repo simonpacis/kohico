@@ -90,7 +90,7 @@ class Annotation:
 ^{self.unique_id}"""
         return return_string + '\n'
 
-    def markdown(self):
+    def default_markdown_template(self):
         return_string = f"""## Annotation on Page {self.page_number}
 **Highlighted Text:**  
 ==={self.notes}===
@@ -100,6 +100,14 @@ class Annotation:
 
 """
         return return_string
+
+    def markdown(self, iteration):
+        if args.template is None:
+            template = self.default_markdown_template()
+        else:
+            with open(args.template, 'r') as file:
+                template = file.read()
+        return template.format(text=self.text, page_number=self.page_number, highlight=self.notes, context=self.context, unique_id=self.unique_id, data=self.data, iteration=iteration)
 
 def remove_whitespace(text):
     return re.sub(r'\s+', '', text)
@@ -220,8 +228,8 @@ def convert_annotations_markdown():
     print('Converting annotations (markdown).')
     markdown_output = "# Annotations and Highlights\nDocument: " + os.path.basename(file_path) + '\n'
     sorted_annotations = sorted(annotations, key=lambda x: x.page_number)
-    for annotation in sorted_annotations:
-        markdown_output = markdown_output + annotation.markdown()
+    for iteration, annotation in enumerate(sorted_annotations):
+        markdown_output = markdown_output + annotation.markdown((iteration+1))
     markdown_output = markdown_output + '\n'
     last_slash_index = file_path.rfind('/')
     output_file_name = file_path.replace('.pdf', '', 1) + '_anno.md'
@@ -325,9 +333,19 @@ def find_relative_path_to_pdf(absolute_pdf_path):
 
     return None
 
+def parse_choices(choice_str):
+    choices = choice_str.split(',')
+    valid_choices = ['obsidian-annotator', 'obs', 'bake', 'markdown', 'md']
+    for choice in choices:
+        if choice not in valid_choices:
+            raise argparse.ArgumentTypeError(f"{choice} is not a valid choice.")
+    return choices
+
 parser = argparse.ArgumentParser(description="Convert KOReader highlights, either by baking them into the PDF, converting for use with the Annotator plugin for Obsidian, or exporting to Markdown.")
 parser.add_argument("file_path", help="Path to the PDF file")
-parser.add_argument("conversion_type", nargs='?', choices=['obsidian-annotator', 'obs', 'bake', 'markdown', 'md'], default='obsidian-annotator', help="Type of conversion ('obsidian-annotator'/'obs' for Obsidian Annotator, 'bake' for baking into the PDF, 'markdown'/'md' for markdown output.). Default is 'obsidian-annotator'.")
+parser.add_argument("conversion_type", type=parse_choices, default='obsidian-annotator',
+                    help="Comma-separated types of conversion ('obsidian-annotator'/'obs' for Obsidian Annotator, 'bake' for baking into the PDF, 'markdown'/'md' for markdown output.). Default is 'obsidian-annotator'.")
+parser.add_argument('--template', type=str, help='Path to the template file', default=None)
 args = parser.parse_args()
 print('Initiating.')
 
@@ -337,22 +355,22 @@ vault_path = 'vault:/' + find_relative_path_to_pdf(file_path)
 page_offsets = []
 annotations = []
 
-if args.conversion_type == 'obs' or args.conversion_type == 'obsidian-annotator':
+if 'obs' in args.conversion_type or 'obsidian-annotator' in args.conversion_type:
     fingerprint = fingerprint(file_path)
-    conversion_type = 'obsidian-annotator'
 else:
     fingerprint = 'na'
-    conversion_type = args.conversion_type
 
 json_data = lua_to_json()
-
 process_annotations(json_data)
 
-if conversion_type == 'obsidian-annotator':
-    convert_annotations_obsidian_annotator()
-elif conversion_type == 'bake':
-    convert_annotations_bake(file_path)
-elif conversion_type == 'markdown' or conversion_type == 'md':
-    convert_annotations_markdown()
+conversion_types = args.conversion_type
+
+for conversion_type in conversion_types:
+    if conversion_type == 'obsidian-annotator' or conversion_type == 'obs':
+        convert_annotations_obsidian_annotator()
+    elif conversion_type == 'bake':
+        convert_annotations_bake(file_path)
+    elif conversion_type == 'markdown' or conversion_type == 'md':
+        convert_annotations_markdown()
 
 print('All done.')
