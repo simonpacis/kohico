@@ -93,7 +93,7 @@ class Annotation:
     def default_markdown_template(self):
         return_string = f"""## Annotation on Page {self.page_number}
 **Highlighted Text:**  
-==={self.notes}===
+=={self.notes}==
 
 **Annotation:**  
 {self.text}
@@ -194,10 +194,13 @@ def lua_to_json():
     print('Converting metadata to JSON.')
     lua_script = base64.b64decode(encoded_lua_script).decode('utf-8')
     lua = LuaRuntime(unpack_returned_tuples=True)
-    lua.globals().argument = os.path.dirname(file_path) + '/metadata.pdf.lua' 
+    if needs_context == False:
+        lua.globals().argument = file_path 
+    else:
+        lua.globals().argument = os.path.dirname(file_path) + '/metadata.pdf.lua' 
     return json.loads(lua.execute(lua_script))
 
-def process_annotations(json_data):
+def process_annotations(json_data, needs_context):
     global annotations
     print('Processing annotations.')
     # Process annotations
@@ -207,7 +210,10 @@ def process_annotations(json_data):
             text = bookmark.get("text", "")
             notes = bookmark.get("notes", "No notes available")
             title = json_data['doc_props']['title']
-            context = find_context(file_path, page_no, notes)
+            if needs_context:
+                context = find_context(file_path, page_no, notes)
+            else:
+                context = {"preceding": 'na', 'succeeding': 'na', 'start_pos': 'na', 'end_pos': 'na'}
             annotations.append(Annotation(fingerprint, title, vault_path, text, notes, file_path, page_no, context))
 
 def convert_annotations_obsidian_annotator():
@@ -333,7 +339,7 @@ def find_relative_path_to_pdf(absolute_pdf_path):
 
     return None
 
-def parse_choices(choice_str):
+def parse_choices(choice_str = 'obs,md'):
     choices = choice_str.split(',')
     valid_choices = ['obsidian-annotator', 'obs', 'bake', 'markdown', 'md']
     for choice in choices:
@@ -342,28 +348,38 @@ def parse_choices(choice_str):
     return choices
 
 parser = argparse.ArgumentParser(description="Convert KOReader highlights, either by baking them into the PDF, converting for use with the Annotator plugin for Obsidian, or exporting to Markdown.")
-parser.add_argument("file_path", help="Path to the PDF file")
-parser.add_argument("conversion_type", type=parse_choices, default='obsidian-annotator',
-                    help="Comma-separated types of conversion ('obsidian-annotator'/'obs' for Obsidian Annotator, 'bake' for baking into the PDF, 'markdown'/'md' for markdown output.). Default is 'obsidian-annotator'.")
-parser.add_argument('--template', type=str, help='Path to the template file', default=None)
+parser.add_argument("file_path", help="Path to the PDF file. You can also give the path directly to a metadata.pdf.lua file, in which case not all conversion types will be available.")
+parser.add_argument("output_format", type=parse_choices, nargs='?', default='obsidian-annotator',
+                    help="Comma-separated types of output format(s) ('obsidian-annotator'/'obs' for Obsidian Annotator, 'bake' for baking into the PDF, 'markdown'/'md' for markdown output.). Default is 'obsidian-annotator,markdown'.")
+parser.add_argument('--template', type=str, help='Path to an optional Markdown template file.', default=None)
 args = parser.parse_args()
 print('Initiating.')
 
 file_path = args.file_path
+needs_context = True 
+
+if file_path[-3:] == 'lua':
+    print("You have passed the metadata file directly instead of a PDF. The only available conversion options are: 'markdown'/'md'.")
+    if not all(item in ['md', 'markdown'] for item in args.conversion_type):
+        print('One of the selected conversion types is not available. Exiting.')
+        sys.exit(0)
+    needs_context = False
+
+
 raw_vault_path = find_relative_path_to_pdf(file_path)
 vault_path = 'vault:/' + find_relative_path_to_pdf(file_path)
 page_offsets = []
 annotations = []
 
-if 'obs' in args.conversion_type or 'obsidian-annotator' in args.conversion_type:
+if 'obs' in args.output_format or 'obsidian-annotator' in args.output_format:
     fingerprint = fingerprint(file_path)
 else:
     fingerprint = 'na'
 
 json_data = lua_to_json()
-process_annotations(json_data)
+process_annotations(json_data, needs_context)
 
-conversion_types = args.conversion_type
+conversion_types = args.output_format
 
 for conversion_type in conversion_types:
     if conversion_type == 'obsidian-annotator' or conversion_type == 'obs':

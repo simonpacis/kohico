@@ -25,24 +25,24 @@ Before running this script, ensure you have the following prerequisites installe
 ## Usage
 
 ```bash
-python3 kohico.py [-h] [--template MARKDOWN_TEMPLATE_FILE] file_path conversion_types
+usage: python3 kohico.py [-h] [--template TEMPLATE] file_path [output_format]
+
+Convert KOReader highlights, either by baking them into the PDF, converting for use with the Annotator plugin for Obsidian, or exporting to Markdown.
 
 positional arguments:
-  file_path            Path to the PDF file
-  conversion_type      Comma-separated types of conversion ('obsidian-annotator'/'obs' for Obsidian Annotator, 'bake' for baking into the PDF, 'markdown'/'md' for markdown output.). Default is 'obsidian-annotator'
+  file_path            Path to the PDF file. You can also give the path directly to a metadata.pdf.lua file, in which case not all conversion types will be available.
+  output_format        Comma-separated types of output format(s) ('obsidian-annotator'/'obs' for Obsidian Annotator, 'bake' for baking into the PDF, 'markdown'/'md' for markdown output.). Default is 'obsidian-annotator,markdown'.
 
 options:
   -h, --help           show this help message and exit
-  --template MARKDOWN_TEMPLATE_FILE Path to an optional Markdown template file
-
+  --template TEMPLATE  Path to an optional Markdown template file.
 ```
-
 
 1. **Locate Your PDF**: Find the PDF in your KOReader directory. You should see a directory named `<PDFNAME>.sdr` next to it.
 
-2. **Move Metadata File**: Move the `metadata.pdf.lua` file from the `.sdr` directory to the same location as the corresponding PDF (if converting for obsidian-annotator, the PDF must be in your Obsidian vault).
+2. **Move Metadata File**: Move the `metadata.pdf.lua` file from the `.sdr` directory to the same location as the corresponding PDF (if converting for obsidian-annotator, the PDF must also be in your Obsidian vault).
 
-3. **Run the Script**: Execute the script (`python3 kohico.py [...]`), passing the path to the PDF, and your desired output as the second (You can do multiple outputs by separating with commas). It will generate a file named `<PDFNAME>_anno.md`, `<PDFNAME>_obs-anno.md` or `<PDFNAME>_anno.pdf` next to the original PDF.
+3. **Run the Script**: Execute the script, passing the path to the PDF (or alternatively the metadata.pdf.lua file, in which case only `markdown` is available as output format), and your desired output as the second (You can do multiple outputs by separating with commas). It will generate a file named `<PDFNAME>_anno.md`, `<PDFNAME>_obs-anno.md` or `<PDFNAME>_anno.pdf` next to the original PDF.
 
 5. **View Your Highlights**: Your kohiconverted highlights can now be viewed.
 
