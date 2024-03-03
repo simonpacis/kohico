@@ -50,12 +50,15 @@ options:
 Understanding that not everyone wants their outputted Markdown annotations to be formatted like me, it is possible to change it using a template. Here's how:
 
 1. Create a markdown file, you could call it `template.md`.
-2. Populate it how you wish, wrapping available variables in curly brackets (`{}`), as such:
+2. Populate it how you wish, wrapping available variables in curly brackets (`{}`), as such (the following is the default template):
 
 ```markdown
-## Annotation no. {iteration}
-Page number: {page_number}
-Highlighted text: {highlight}
+
+---
+Page {page_number}
+=={highlight}==
+
+{text}
 ```
 
 3. Pass the template file along to kohico using `--template <PATH_TO_TEMPLATE_FILE>`. Remember, this only works with conversion type `markdown` (or `md`).

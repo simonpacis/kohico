@@ -19,14 +19,6 @@ import argparse
 # This script simply opens the metadata.pdf.lua file, converts it to json and spits it out. Easiest way to convert the lua data structure to json.
 encoded_lua_script = 'bG9jYWwgZGtqc29uID0gcmVxdWlyZSAiZGtqc29uIgoKbG9jYWwgc3RhdHVzLCBkYXRhID0gcGNhbGwoZG9maWxlLCBhcmd1bWVudCkKaWYgc3RhdHVzIHRoZW4KCWxvY2FsIGpzb25fc3RyaW5nID0gZGtqc29uLmVuY29kZShkYXRhLCB7IGluZGVudCA9IHRydWUgfSkKCXJldHVybiBqc29uX3N0cmluZwplbmQK'
 
-class Text:
-    def __init__(self, text, highlight):
-        self.highlight = highlight
-        self.text = text
-
-    def print(self):
-        return f"**Highlight**: =={self.highlight}==\n**Notes**: {self.text}\n"
-
 class Annotation:
     def __init__(self, fingerprint, title, vault_path, text, notes, pdf_path, page_number, context):
         characters = string.ascii_lowercase + string.digits
@@ -68,7 +60,7 @@ class Annotation:
                     ]
                 }
 
-    def json(self):
+    def hypothesis_data(self):
         return json.dumps(self.data)
 
     def nonewlines(self, string):
@@ -78,7 +70,7 @@ class Annotation:
         return_string = f"""
 >%%
 >```annotation-json
->{self.json()}
+>{self.hypothesis_data()}
 >```
 >%%
 >*%%PREFIX%%{self.nonewlines(self.context['preceding'])}%%HIGHLIGHT%% =={self.nonewlines(self.notes)}== %%POSTFIX%%{self.nonewlines(self.context['succeeding'])}*
@@ -91,13 +83,12 @@ class Annotation:
         return return_string + '\n'
 
     def default_markdown_template(self):
-        return_string = f"""## Annotation on Page {self.page_number}
-**Highlighted Text:**  
-=={self.notes}==
+        return_string = """
+---
+Page {page_number}
+=={highlight}==
 
-**Annotation:**  
-{self.text}
-
+{text}
 """
         return return_string
 
@@ -360,7 +351,7 @@ needs_context = True
 
 if file_path[-3:] == 'lua':
     print("You have passed the metadata file directly instead of a PDF. The only available conversion options are: 'markdown'/'md'.")
-    if not all(item in ['md', 'markdown'] for item in args.conversion_type):
+    if not all(item in ['md', 'markdown'] for item in args.output_format):
         print('One of the selected conversion types is not available. Exiting.')
         sys.exit(0)
     needs_context = False
