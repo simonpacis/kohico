@@ -19,10 +19,15 @@ import argparse
 # This script simply opens the metadata.pdf.lua file, converts it to json and spits it out. Easiest way to convert the lua data structure to json.
 encoded_lua_script = 'bG9jYWwgZGtqc29uID0gcmVxdWlyZSAiZGtqc29uIgoKbG9jYWwgc3RhdHVzLCBkYXRhID0gcGNhbGwoZG9maWxlLCBhcmd1bWVudCkKaWYgc3RhdHVzIHRoZW4KCWxvY2FsIGpzb25fc3RyaW5nID0gZGtqc29uLmVuY29kZShkYXRhLCB7IGluZGVudCA9IHRydWUgfSkKCXJldHVybiBqc29uX3N0cmluZwplbmQK'
 
+class Document:
+    def __init__(self, title):
+        self.title = title
+
 class Annotation:
     def __init__(self, fingerprint, title, vault_path, text, notes, pdf_path, page_number, context):
         characters = string.ascii_lowercase + string.digits
         self.unique_id = ''.join(random.choice(characters) for _ in range(10))
+        self.title = title
         self.notes = notes
         self.text = text
         self.page_number = page_number
@@ -82,23 +87,9 @@ class Annotation:
 ^{self.unique_id}"""
         return return_string + '\n'
 
-    def default_markdown_template(self):
-        return_string = """
----
-Page {page_number}
-=={highlight}==
 
-{text}
-"""
-        return return_string
-
-    def markdown(self, iteration):
-        if args.template is None:
-            template = self.default_markdown_template()
-        else:
-            with open(args.template, 'r') as file:
-                template = file.read()
-        return template.format(text=self.text, page_number=self.page_number, highlight=self.notes, context=self.context, unique_id=self.unique_id, data=self.data, iteration=iteration)
+    def markdown(self, annotation_template, iteration):
+        return annotation_template.format(text=self.text, page_number=self.page_number, highlight=self.notes, context=self.context, unique_id=self.unique_id, data=self.data, iteration=iteration, title=self.title)
 
 def remove_whitespace(text):
     return re.sub(r'\s+', '', text)
@@ -192,9 +183,10 @@ def lua_to_json():
     return json.loads(lua.execute(lua_script))
 
 def process_annotations(json_data, needs_context):
-    global annotations
+    global annotations, document
     print('Processing annotations.')
     # Process annotations
+    document = Document(json_data['doc_props']['title'])
     if "bookmarks" in json_data:
         for bookmark in json_data["bookmarks"]:
             page_no = bookmark.get("page", 1)
@@ -220,13 +212,42 @@ def convert_annotations_obsidian_annotator():
     print(f"Annotation file saved as {output_file_name}.")
     return True
 
+def default_markdown_template():
+    return_string = """# {title} annotations
+File: {filename}
+%annotation
+---
+Page {page_number}
+=={highlight}==
+
+{text}
+"""
+    return return_string
+
 def convert_annotations_markdown():
-    global annotations
+    global annotations, document
     print('Converting annotations (markdown).')
-    markdown_output = "# Annotations and Highlights\nDocument: " + os.path.basename(file_path) + '\n'
     sorted_annotations = sorted(annotations, key=lambda x: x.page_number)
+
+    if args.template is None:
+        template = default_markdown_template()
+    else:
+        with open(args.template, 'r') as file:
+            template = file.read()
+    template_parts = template.split('%annotation')
+
+    if len(template_parts) < 2:
+        print('A Markdown template must include a line containing just "%annotation". Everything before this line will be the global template, everything after will be repeated for each annotation. Exiting.')
+        sys.exit(0)
+
+    global_template = template_parts[0]
+
+    markdown_output = global_template.format(filename=os.path.basename(file_path), title=document.title)
+
+    annotation_template = template_parts[1]
+
     for iteration, annotation in enumerate(sorted_annotations):
-        markdown_output = markdown_output + annotation.markdown((iteration+1))
+        markdown_output = markdown_output + annotation.markdown(annotation_template, (iteration+1))
     markdown_output = markdown_output + '\n'
     last_slash_index = file_path.rfind('/')
     output_file_name = file_path.replace('.pdf', '', 1) + '_anno.md'

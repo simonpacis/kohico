@@ -47,13 +47,19 @@ options:
 5. **View Your Highlights**: Your kohiconverted highlights can now be viewed.
 
 ## Markdown Template?
-Understanding that not everyone wants their outputted Markdown annotations to be formatted like me, it is possible to change it using a template. Here's how:
+Understanding that not everyone wants their outputted Markdown annotations to be formatted like me, it is possible to change it using a template.
+
+There are two parts to a template, a `global` part, and an `annotation` part. The `global` part will only be outputted once, at the beginning of the resulting Markdown-document. The `annotation` part will be repeated for each annotation. They are separated by `%annotation`.
+
+Here's how to do it:
 
 1. Create a markdown file, you could call it `template.md`.
-2. Populate it how you wish, wrapping available variables in curly brackets (`{}`), as such (the following is the default template):
+2. Populate it how you wish, separating the `global` part from the `annotation` part by a line containing `%annotation`. Wrap available variables in curly brackets (`{}`), as such (the following is the default template):
 
 ```markdown
-
+# {title} annotations
+File: {filename}
+%annotation
 ---
 Page {page_number}
 =={highlight}==
@@ -66,11 +72,17 @@ Page {page_number}
 ### Available variables
 The following variables are available for use in the template:
 
+#### Global
+- **filename**: The file name.
+- **title**: The title of the PDF document.
+
+#### Annotation
 - **highlight**: The actual highlit text.
 - **text**: Any written comment to the highlight.
 - **page_number**: The page on which the highlight is found.
 - **unique_id**: A unique ID (meant for use by obsidian-annotator) if you need it.
 - **iteration**: Starting from 1, it represents the index of the current annotation.
+- **title**: The title of the PDF document.
 
 ## How it Works
 The script acceses the highlights metadata from KOReader, and converts it to JSON. It then iterates through every highlight, goes into the PDF and finds the highlight there, so that it can extract the surrounding textual content.
