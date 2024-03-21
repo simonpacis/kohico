@@ -20,8 +20,9 @@ import argparse
 encoded_lua_script = 'bG9jYWwgZGtqc29uID0gcmVxdWlyZSAiZGtqc29uIgoKbG9jYWwgc3RhdHVzLCBkYXRhID0gcGNhbGwoZG9maWxlLCBhcmd1bWVudCkKaWYgc3RhdHVzIHRoZW4KCWxvY2FsIGpzb25fc3RyaW5nID0gZGtqc29uLmVuY29kZShkYXRhLCB7IGluZGVudCA9IHRydWUgfSkKCXJldHVybiBqc29uX3N0cmluZwplbmQK'
 
 class Document:
-    def __init__(self, title):
+    def __init__(self, title, author):
         self.title = title
+        self.author = author
 
 class Annotation:
     def __init__(self, fingerprint, title, vault_path, text, notes, pdf_path, page_number, context):
@@ -186,7 +187,7 @@ def process_annotations(json_data, needs_context):
     global annotations, document
     print('Processing annotations.')
     # Process annotations
-    document = Document(json_data['doc_props']['title'])
+    document = Document(json_data['doc_props']['title'], json_data['doc_props']['author'])
     if "bookmarks" in json_data:
         for bookmark in json_data["bookmarks"]:
             page_no = bookmark.get("page", 1)
@@ -214,13 +215,15 @@ def convert_annotations_obsidian_annotator():
 
 def default_markdown_template():
     return_string = """# {title} annotations
-File: {filename}
+{author}
+{filename}
 %annotation
 ---
-Page {page_number}
-=={highlight}==
+> [!quote] &nbsp;
+> =={highlight}== (p. {page_number})
 
-{text}
+> [!note] &nbsp;
+> {text}
 """
     return return_string
 
@@ -234,6 +237,7 @@ def convert_annotations_markdown():
     else:
         with open(args.template, 'r') as file:
             template = file.read()
+
     template_parts = template.split('%annotation')
 
     if len(template_parts) < 2:
@@ -242,7 +246,7 @@ def convert_annotations_markdown():
 
     global_template = template_parts[0]
 
-    markdown_output = global_template.format(filename=os.path.basename(file_path), title=document.title)
+    markdown_output = global_template.format(filename=os.path.basename(file_path), title=document.title, author=document.author)
 
     annotation_template = template_parts[1]
 
@@ -360,7 +364,7 @@ def parse_choices(choice_str = 'obs,md'):
     return choices
 
 parser = argparse.ArgumentParser(description="Convert KOReader highlights, either by baking them into the PDF, converting for use with the Annotator plugin for Obsidian, or exporting to Markdown.")
-parser.add_argument("file_path", help="Path to the PDF file. You can also give the path directly to a metadata.pdf.lua file, in which case not all conversion types will be available.")
+parser.add_argument("file_path", help="Path to the PDF file. You can also give the path directly to a metadata.pdf.lua file, in which case not all output formats will be available.")
 parser.add_argument("output_format", type=parse_choices, nargs='?', default='obsidian-annotator',
                     help="Comma-separated types of output format(s) ('obsidian-annotator'/'obs' for Obsidian Annotator, 'bake' for baking into the PDF, 'markdown'/'md' for markdown output.). Default is 'obsidian-annotator,markdown'.")
 parser.add_argument('--template', type=str, help='Path to an optional Markdown template file.', default=None)
@@ -371,7 +375,7 @@ file_path = args.file_path
 needs_context = True 
 
 if file_path[-3:] == 'lua':
-    print("You have passed the metadata file directly instead of a PDF. The only available conversion options are: 'markdown'/'md'.")
+    print("You have passed the metadata file directly instead of a PDF. The only available output formats are: 'markdown'/'md'.")
     if not all(item in ['md', 'markdown'] for item in args.output_format):
         print('One of the selected conversion types is not available. Exiting.')
         sys.exit(0)

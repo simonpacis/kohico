@@ -75,6 +75,7 @@ The following variables are available for use in the template:
 #### Global
 - **filename**: The file name.
 - **title**: The title of the PDF document.
+- **author**: The author of the PDF document.
 
 #### Annotation
 - **highlight**: The actual highlit text.
