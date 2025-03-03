@@ -187,9 +187,26 @@ def process_annotations(json_data, needs_context):
     global annotations, document
     print('Processing annotations.')
     # Process annotations
-    document = Document(json_data['doc_props']['title'], json_data['doc_props']['author'])
+    if 'author' not in json_data['doc_props'] and 'authors' not in json_data['doc_props']:
+        author = 'Unknown'
+    elif 'author' in json_data['doc_props']:
+        author = json_data['doc_props']['author']
+    elif 'authors' in json_data['doc_props']:
+        author = json_data['doc_props']['authors']
+    document = Document(json_data['doc_props']['title'], author)
     if "bookmarks" in json_data:
         for bookmark in json_data["bookmarks"]:
+            page_no = bookmark.get("page", 1)
+            text = bookmark.get("text", "")
+            notes = bookmark.get("notes", "No notes available")
+            title = json_data['doc_props']['title']
+            if needs_context:
+                context = find_context(file_path, page_no, notes)
+            else:
+                context = {"preceding": 'na', 'succeeding': 'na', 'start_pos': 'na', 'end_pos': 'na'}
+            annotations.append(Annotation(fingerprint, title, vault_path, text, notes, file_path, page_no, context))
+    if "annotations" in json_data:
+        for bookmark in json_data["annotations"]:
             page_no = bookmark.get("page", 1)
             text = bookmark.get("text", "")
             notes = bookmark.get("notes", "No notes available")
