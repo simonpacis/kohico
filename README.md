@@ -18,9 +18,23 @@ Before running this script, ensure you have the following prerequisites installe
    ```
 2. **Python Dependencies**: Install all the Python packages mentioned in the script. You can use pip to install these packages:
    ```bash
-   pip3 install fuzzywuzzy PyPDF2 pdfminer lupa PyMuPDF
+   pip3 install -r requirements.txt
    ```
-   Note: You might need additional dependencies depending on your system setup. Run the script and see what it says.
+
+### For specific output formats
+There are certain output formats which require more exotic installations.
+
+#### Readest
+Currently only supported on macOS.
+
+This converts the KOReader annotations for .epub-files, for use in [Readest](https://readest.com).
+
+You must have [node](https://nodejs.org) installed, as well as my custom version of [epub-cfi-generator](https://github.com/simonpacis/epub-cfi-generator#MIT-1-ov-file).
+
+This output format does not currently work on Linux or Windows.
+
+#### Pdf++
+This converts the KOReader annotations for .pdf-files, for use with the Obsidian plugin [PDF++](https://github.com/RyotaUshio/obsidian-pdf-plus).
 
 ## Usage
 

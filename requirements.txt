@@ -1,0 +1,7 @@
+fuzzywuzzy>=0.18.0
+PyPDF2>=3.0.0
+pdfminer.six>=20221105
+lupa>=2.1
+pymupdf>=1.23.0  # This is the package name for fitz
+thefuzz>=0.19.0
+python-Levenshtein>=0.12.0  # Optional but recommended for fuzzywuzzy performance
