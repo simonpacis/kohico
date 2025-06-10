@@ -1,0 +1,15 @@
+{
+  "name": "pdf-text-extractor",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "extract-pdf-text.js",
+  "scripts": {
+    "start": "node extract-pdf-text.js"
+  },
+  "dependencies": {
+    "jsdom": "^24.0.0",
+		"pdfjs-dist": "^5.3.31"
+
+  }
+}
+

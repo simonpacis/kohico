@@ -24,17 +24,28 @@ Before running this script, ensure you have the following prerequisites installe
 ### For specific output formats
 There are certain output formats which require more exotic installations.
 
+#### Pdf++
+This converts the KOReader annotations for .pdf-files, for use with the Obsidian plugin [PDF++](https://github.com/RyotaUshio/obsidian-pdf-plus).
+
+Requirements for this output format include:
+- [node](https://nodejs.org)
+
+##### Setting up
+To use this output format, you must first go to the `kohico/nodescripts` directory and run `npm install`.
+
 #### Readest
 Currently only supported on macOS.
 
 This converts the KOReader annotations for .epub-files, for use in [Readest](https://readest.com).
 
-You must have [node](https://nodejs.org) installed, as well as my custom version of [epub-cfi-generator](https://github.com/simonpacis/epub-cfi-generator#MIT-1-ov-file).
+Requirements for this output format include:
+- [node](https://nodejs.org)
 
 This output format does not currently work on Linux or Windows.
 
-#### Pdf++
-This converts the KOReader annotations for .pdf-files, for use with the Obsidian plugin [PDF++](https://github.com/RyotaUshio/obsidian-pdf-plus).
+##### Setting up
+To use this output format, you must first go to the `kohico/nodescripts/epub-cfi-generator` directory and run `npm install`.
+
 
 ## Usage
 

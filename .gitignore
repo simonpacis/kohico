@@ -1,2 +1,7 @@
 Session.vim
 .DS_Store
+/nodescripts/node_modules/
+/nodescripts/package-lock.json
+/nodescripts/epub-cfi-generator/node_modules/
+/nodescripts/epub-cfi-generator/package-lock.json
+

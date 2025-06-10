@@ -141,85 +141,6 @@ class CFIGenerator:
         self.cfi_data = cfi_data
         self.page_count = page_count
 
-    def _find_text_node(self, global_pos):
-        """Find which text node contains the given global position"""
-        idx = bisect_right(self.cumulative_lengths, global_pos) - 1
-        if 0 <= idx < len(self.text_nodes):
-            return idx, global_pos - self.cumulative_lengths[idx]
-        return None, None
-
-    def find_text_position(self, target_text, context_xpath=None):
-        """
-        Find best fuzzy match of target_text across all text nodes,
-        return the exact CFI start and end of the match.
-        """
-
-        target_text = normalize_text(target_text)
-        if not target_text:
-            return None
-
-        target_len = len(target_text)
-        best_score = 0
-        best_start = None
-        best_end = None
-
-        # Build normalized flat text for global search
-        flat_text = ''.join(node['text'] for node in self.text_nodes)
-        flat_text_norm = normalize_text(flat_text)
-
-        # Sliding window over flat_text to find best fuzzy match
-        step = max(1, target_len // 4)
-        window_range = range(0, len(flat_text_norm) - target_len + 1, step)
-
-        for i in window_range:
-            window = flat_text_norm[i:i + target_len]
-            score = fuzz.ratio(target_text, window)
-            if score > best_score:
-                best_score = score
-                best_start = i
-                best_end = i + target_len
-                if score >= 95:
-                    break  # early exit on near-perfect match
-
-        if best_score < 85:
-            return None  # reject low-confidence match
-
-        start_idx, offset_start = self._find_text_node(best_start)
-        end_idx, offset_end = self._find_text_node(best_end)
-
-        if start_idx is None or end_idx is None:
-            return None
-
-        return (
-            self.text_nodes[start_idx]['cfi'],
-            offset_start,
-            self.text_nodes[end_idx]['cfi'],
-            offset_end
-        )
-
-    def _filter_nodes_by_xpath(self, xpath):
-        """
-        Filter text nodes based on xpath hint
-
-        Args:
-            xpath: The xpath to use as a filter
-
-        Returns:
-            List of indices of text nodes that likely match the xpath
-        """
-        # Extract key components from xpath
-        # Example: "/body/DocFragment[10]/body/div/p[6]/text().820"
-        pattern = r"/body/DocFragment\[(\d+)\]/body/div/p\[(\d+)\]"
-        match = re.search(pattern, xpath)
-        if not match:
-            return range(len(self.text_nodes))  # Fallback to all nodes
-
-        doc_fragment_num = int(match.group(1))
-        paragraph_num = int(match.group(2))
-
-        # In a real implementation, you'd use these to filter nodes
-        # For now, we'll return all nodes as we don't have xpath-CFI mapping
-        return range(len(self.text_nodes))
 
     def find_nodes_for_match(self, start, end):
         if DEBUG:
@@ -379,191 +300,78 @@ class CFIGenerator:
 def get_readest_bookkey(file_path):
     abs_path = os.path.abspath(file_path)
 
-    js_code = f"""
-    const {{ createHash }} = require('crypto');
-    const fs = require('fs');
+    script_path = os.path.realpath(__file__)
+    base_dir = os.path.dirname(script_path)
+    js_script_path = os.path.join(base_dir, 'nodescripts', 'get-readest-bookkey.js')  # or .cjs if using Option 2
 
-    async function partialMD5(filePath) {{
-        const step = 1024;
-        const size = 1024;
-        const hasher = createHash('md5');
-        const stats = fs.statSync(filePath);
-        const fileSize = stats.size;
+    if not os.path.isfile(js_script_path):
+        raise FileNotFoundError(f"Node script not found at: {js_script_path}")
 
-        for (let i = -1; i <= 10; i++) {{
-            const start = Math.min(fileSize, step << (2 * i));
-            const end = Math.min(start + size, fileSize);
-
-            if (start >= fileSize) break;
-
-            const fd = fs.openSync(filePath, 'r');
-            const buffer = Buffer.alloc(end - start);
-            fs.readSync(fd, buffer, 0, buffer.length, start);
-            fs.closeSync(fd);
-            
-            hasher.update(buffer);
-        }}
-
-        return hasher.digest('hex');
-    }}
-
-    // Get file path from command line and run
-    partialMD5("{abs_path}").then(console.log);
-    """
-
-
+    cmd = [
+        "node",
+        js_script_path,
+        abs_path
+    ]
     try:
         result = subprocess.run(
-            ["node", "--eval", js_code],
+            cmd,
             capture_output=True,
             text=True,
             check=True
         )
-        
         return result.stdout.strip()
     except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Execution failed: {e.stderr or 'No stderr'}")
-    except Exception as e:
-        raise RuntimeError(f"Execution failed: {e}")
+        raise RuntimeError(f"Node.js execution failed:\n{e.stderr.strip()}")
+
 
 def get_pdfjs_text_content(pdf_path, page_spec=None):
     """
-    Extract text from PDF using PDF.js
+    Extract text from PDF using Node.js + PDF.js
     
     Args:
-        pdf_path: Path to PDF file
-        page_spec: None for all pages, 
-                   "3" for single page,
-                   "1-6" for page range (inclusive)
+        pdf_path (str): Path to PDF file
+        page_spec (str|None): e.g. "3", "1-5", or None for all pages
+
+    Returns:
+        list of dict: Each item is {'page': int, 'content': {...}}
     """
-    abs_path = os.path.abspath(pdf_path)
-    escaped_path = json.dumps(abs_path)
+    # Resolve real path of the script (not symlink)
+    script_path = os.path.realpath(__file__)
+    base_dir = os.path.dirname(script_path)
+    js_script_path = os.path.join(base_dir, 'nodescripts', 'extract-pdf-text.js')
 
-    # Parse page specification
-    if page_spec is None or page_spec == "":
-        page_logic = """
-            for (let i = 1; i <= numPages; i++) {
-                const page = await doc.getPage(i);
-                const content = await page.getTextContent();
-                allPagesContent.push({
-                    page: i,
-                    content: content
-                });
-            }
-        """
-    elif "-" in page_spec:
-        start, end = map(int, page_spec.split("-"))
-        page_logic = f"""
-            const startPage = Math.max(1, {start});
-            const endPage = Math.min(numPages, {end});
-            for (let i = startPage; i <= endPage; i++) {{
-                const page = await doc.getPage(i);
-                const content = await page.getTextContent();
-                allPagesContent.push({{
-                    page: i,
-                    content: content
-                }});
-            }}
-        """
-    else:  # Single page
-        page_num = int(page_spec)
-        page_logic = f"""
-            const pageNum = Math.min(numPages, Math.max(1, {page_num}));
-            const page = await doc.getPage(pageNum);
-            const content = await page.getTextContent();
-            allPagesContent.push({{
-                page: pageNum,
-                content: content
-            }});
-        """
+    if not os.path.isfile(js_script_path):
+        raise FileNotFoundError(f"Node script not found at: {js_script_path}")
 
-    js_code = f"""
-    import {{ readFileSync }} from 'fs';
-    import {{ JSDOM }} from 'jsdom';
-    import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-    import {{ fileURLToPath }} from 'url';
-    import path from 'path';
-
-    // Store the original stdout write function
-    const originalStdoutWrite = process.stdout.write;
-    const originalStderrWrite = process.stderr.write;
-
-    // Temporarily suppress all output
-    process.stdout.write = function() {{}};
-    process.stderr.write = function() {{}};
-
-    const dom = new JSDOM('<!DOCTYPE html>', {{
-        runScripts: "dangerously",
-        resources: "usable"
-    }});
-
-    globalThis.window = dom.window;
-    globalThis.document = dom.window.document;
-    globalThis.DOMMatrix = dom.window.DOMMatrix;
-    globalThis.DOMParser = dom.window.DOMParser;
-
-    const workerPath = path.resolve(
-        path.dirname(fileURLToPath(import.meta.url)),
-        'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'
-    );
-    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('file://' + workerPath).href;
-
-    async function extractPages() {{
-        try {{
-            const data = new Uint8Array(readFileSync({escaped_path}));
-            pdfjsLib.GlobalWorkerOptions.standardFontDataUrl = new URL(
-              'file://' + path.resolve(
-                path.dirname(fileURLToPath(import.meta.url)),
-                'node_modules/pdfjs-dist/standard_fonts/'
-              )
-            ).href;
-            
-            const doc = await pdfjsLib.getDocument({{ data }}).promise;
-            const numPages = doc.numPages;
-            const allPagesContent = [];
-            
-            {page_logic}
-            
-            // Restore stdout just for our JSON output
-            process.stdout.write = originalStdoutWrite;
-            process.stdout.write(JSON.stringify(allPagesContent));
-        }} catch (err) {{
-            // Restore stderr for error output
-            process.stderr.write = originalStderrWrite;
-            process.stderr.write("PDF.js Error: " + err.stack);
-            process.exit(1);
-        }}
-    }}
-
-    extractPages().catch(e => {{
-        process.stderr.write = originalStderrWrite;
-        process.stderr.write("Unhandled Error: " + e.stack);
-        process.exit(1);
-    }});
-    """
+    cmd = [
+        "node",
+        js_script_path,
+        pdf_path
+    ]
+    if page_spec:
+        cmd.append(page_spec)
 
     try:
         result = subprocess.run(
-            ["node", "--input-type=module", "--eval", js_code],
+            cmd,
             capture_output=True,
             text=True,
             check=True
         )
-        
-        # Extract JSON from stdout
+
+        # Match JSON array
         json_match = re.search(r'\[.*\]', result.stdout, re.DOTALL)
         if json_match:
             return json.loads(json_match.group(0))
         else:
             raise RuntimeError("No JSON found in output")
-            
+
     except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Execution failed: {e.stderr or 'No stderr'}")
+        raise RuntimeError(f"Node.js execution failed:\n{e.stderr.strip()}")
+
     except json.JSONDecodeError:
-        print("Raw stdout:", result.stdout)  # For debugging
-        raise RuntimeError("Invalid JSON returned from PDF.js")
-    except Exception as e:
-        raise RuntimeError(f"Unexpected error: {str(e)}")
+        print("Raw output:", result.stdout)
+        raise RuntimeError("Invalid JSON returned from Node.js")
 
 def remove_whitespace(text):
     return re.sub(r'\s+', '', text)
@@ -609,7 +417,7 @@ def find_closest_match(haystack, needle):
 
     return best_match, best_index
 
-def find_context(pdf_path, page_number, search_string, pdfjs_text_content):
+def find_context(pdf_path, page_number, search_string):
     if not page_offsets:
         calculate_page_offsets(pdf_path)
 
@@ -639,17 +447,11 @@ def find_context(pdf_path, page_number, search_string, pdfjs_text_content):
         preceding_text = original_text[local_start_pos:match_index]
         succeeding_text = original_text[match_index + len(search_string):local_end_pos]
 
-        if pdfjs_text_content:
-            text_contents = get_pdfjs_text_content(pdf_path)
-        else:
-            text_contents = []
-
         return {
                 "preceding": preceding_text,
                 "succeeding": succeeding_text,
                 "start_pos": global_start_pos,
-                "end_pos": global_end_pos,
-                "text_contents": text_contents
+                "end_pos": global_end_pos
                 }
 
 def find_string(text_contents, target_string):
@@ -745,6 +547,12 @@ def process_annotations(json_data):
                 context = {"preceding": 'na', 'succeeding': 'na', 'start_pos': 'na', 'end_pos': 'na'}
             annotations.append(Annotation(fingerprint, title, vault_path, text, notes, file_path, page_no, context))
     if "annotations" in json_data:
+
+        if needs_context:
+            text_contents = get_pdfjs_text_content(file_path)
+        else:
+            text_contents = []
+
         for bookmark in json_data["annotations"]:
             page_no = bookmark.get("page", 1)
             text = bookmark.get("text", "")
@@ -752,9 +560,11 @@ def process_annotations(json_data):
             chapter = bookmark.get("chapter", " ")
             title = json_data['doc_props']['title']
             if needs_context:
-                context = find_context(file_path, page_no, notes, True)
+                context = find_context(file_path, page_no, notes)
+                context['text_contents'] = text_contents
+
             else:
-                context = {"preceding": 'na', 'succeeding': 'na', 'start_pos': 'na', 'end_pos': 'na'}
+                context = {"preceding": 'na', 'succeeding': 'na', 'start_pos': 'na', 'end_pos': 'na', 'text_contents': []}
             annotations.append(Annotation(fingerprint, title, vault_path, text, notes, file_path, page_no, context, chapter))
 
 def is_cfi_in_booknotes(book_json_data, target_cfi):
@@ -787,7 +597,12 @@ def convert_annotations_obsidian_annotator():
 def convert_annotations_readest(json_data):
     global file_path, file_hash
     print('Converting annotations (readest).')
-    cfi_job = subprocess.run(['epub-cfi-generator', file_path, 'output.json'], capture_output=True)
+    abs_path = os.path.abspath(file_path)
+
+    script_path = os.path.realpath(__file__)
+    base_dir = os.path.dirname(script_path)
+    js_script_path = os.path.join(base_dir, 'nodescripts', 'epub-cfi-generator', 'usage.js')  # or .cjs if using Option 2
+    cfi_job = subprocess.run(['node', js_script_path, file_path, 'output.json'], capture_output=True)
     cfi_data = json.loads(cfi_job.stdout.decode('utf-8'))
 
     annotations = json_data['annotations']
@@ -796,6 +611,8 @@ def convert_annotations_readest(json_data):
     # TODO: Make this multi-platform. macOS only atm.
     readest_dir = os.path.expanduser("~/Library/Application Support/com.bilingify.readest/Readest/Books")
     readest_lib = os.path.join(readest_dir, "library.json")
+
+    json_backup_path = file_path.replace('.epub', '', 1) + '-backup.json'
 
     book_dir = os.path.join(readest_dir, file_hash)
     book_json = os.path.join(book_dir, "config.json")
@@ -864,6 +681,9 @@ def convert_annotations_readest(json_data):
                     )
 
     with open(book_json, 'w') as f:
+        f.write(json.dumps(book_json_data))
+
+    with open(json_backup_path, 'w') as f:
         f.write(json.dumps(book_json_data))
 
 
