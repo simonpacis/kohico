@@ -63,11 +63,9 @@ options:
   --template TEMPLATE  Path to an optional Markdown template file.
 ```
 
-1. **Locate Your PDF**: Find the PDF in your KOReader directory. You should see a directory named `<PDFNAME>.sdr` next to it.
+1. **Locate Your PDF or EPUB**: Find the file in your KOReader directory. You should see a directory named `<PDFNAME>.sdr` next to it.
 
-2. **Move Metadata File**: Move the `metadata.pdf.lua` file from the `.sdr` directory to the same location as the corresponding PDF (if converting for obsidian-annotator, the PDF must also be in your Obsidian vault).
-
-3. **Run the Script**: Execute the script, passing the path to the PDF (or alternatively the metadata.pdf.lua file, in which case only `markdown` is available as output format), and your desired output as the second (You can do multiple outputs by separating with commas). It will generate a file named `<PDFNAME>_anno.md`, `<PDFNAME>_obs-anno.md` or `<PDFNAME>_anno.pdf` next to the original PDF.
+2. **Run the Script**: Execute the script, passing the path to the PDF or EPUB-file (or alternatively the metadata.pdf.lua or metadata.epub.lua file, in which case only `markdown` is available as output format), and your desired output as the second (You can do multiple outputs by separating with commas). It will generate a file next to the original file. Some output formats, such as Readest, output files in other places, in accordance with the requirements of the reader.
 
 5. **View Your Highlights**: Your kohiconverted highlights can now be viewed.
 
@@ -111,7 +109,7 @@ The following variables are available for use in the template:
 - **title**: The title of the PDF document.
 
 ## How it Works
-The script acceses the highlights metadata from KOReader, and converts it to JSON. It then iterates through every highlight, goes into the PDF and finds the highlight there, so that it can extract the surrounding textual content.
+The script acceses the highlights metadata from KOReader, and converts it to JSON. It then iterates through every highlight, goes into the PDF or EPUB and finds the highlight there, so that it can extract the surrounding textual content.
 
 It then outputs these processed highlights and annotations into your desired format. 
 
