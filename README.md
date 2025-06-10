@@ -109,14 +109,14 @@ The following variables are available for use in the template:
 - **title**: The title of the PDF document.
 
 ## How it Works
-The script acceses the highlights metadata from KOReader, and converts it to JSON. It then iterates through every highlight, goes into the PDF or EPUB and finds the highlight there, so that it can extract the surrounding textual content.
+The script acceses the highlights metadata from KOReader, and converts it to JSON. It then iterates through every highlight, goes into the PDF or EPUB and finds the highlight there, so that it can extract the data necessary for the given output format.
 
 It then outputs these processed highlights and annotations into your desired format. 
 
 
 ## Important Notes
 
-- The script needs access to both the PDF and the Lua metadata file to successfully convert the highlights.
+- The script needs access to both the PDF/EPUB and the Lua metadata file to successfully convert the highlights.
 - Ensure that the Lua environment and all Python dependencies are correctly installed before running the script.
 
 ## Feedback and Contributions
