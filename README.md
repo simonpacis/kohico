@@ -3,7 +3,9 @@ Convert PDF KOReader Highlights, so that the highlights and annotations can be u
 
 Supported formats:
 - Markdown
+- [pdf++](https://github.com/RyotaUshio/obsidian-pdf-plus)
 - [obsidian-annotator](https://github.com/elias-sundqvist/obsidian-annotator)
+- [Readest](https://readest.com)
 - baked in (embedded directly in PDF file)
 
 Feel free to request other formats!
