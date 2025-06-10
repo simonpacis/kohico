@@ -34,7 +34,7 @@ Requirements for this output format include:
 To use this output format, you must first go to the `kohico/nodescripts` directory and run `npm install`.
 
 #### Readest
-Currently only supported on macOS.
+*Currently only supported on macOS.*
 
 This converts the KOReader annotations for .epub-files, for use in [Readest](https://readest.com).
 
